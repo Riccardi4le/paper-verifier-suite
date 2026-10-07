@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Citation Genealogy Agent</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+  <style>
+    /* ── Reset ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f172a;
+      --surface:   #1e293b;
+      --surface2:  #263347;
+      --border:    #334155;
+      --text:      #e2e8f0;
+      --muted:     #94a3b8;
+      --accent:    #6366f1;
+      --accent2:   #4f46e5;
+      --radius:    12px;
+      --gap:       1.25rem;
+
+      --c-supported:    #22c55e;
+      --c-partial:      #f59e0b;
+      --c-distorted:    #f97316;
+      --c-contradicted: #ef4444;
+      --c-not_found:    #94a3b8;
+      --c-pending:      #6366f1;
+    }
+
+    html { font-size: 16px; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────── */
+    .app {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 0 1.5rem 5rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    header {
+      text-align: center;
+      padding: 3rem 1rem 2rem;
+    }
+
+    header h1 {
+      font-size: 2.1rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #e2e8f0 0%, #a5b4fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+
+    header p {
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    /* ── Form card ──────────────────────────────────────────────── */
+    .input-card { margin-bottom: var(--gap); }
+
+    .form-group { margin-bottom: 1rem; }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 220px;
+      gap: 1rem;
+      align-items: end;
+    }
+    @media (max-width: 620px) { .form-row { grid-template-columns: 1fr; } }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.4rem;
+    }
+
+    textarea, input[type="text"] {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9375rem;
+      padding: 0.7rem 0.9rem;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+    textarea { resize: vertical; min-height: 90px; }
+    textarea:focus, input[type="text"]:focus { border-color: var(--accent); }
+    textarea::placeholder, input[type="text"]::placeholder { color: var(--muted); opacity: 0.7; }
+
+    .depth-label {
+      display: flex;
+      justify-content: space-between;
+    }
+    .depth-val {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+      margin-top: 0.3rem;
+    }
+
+    .btn-primary {
+      display: block;
+      width: 100%;
+      margin-top: 1.25rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      padding: 0.8rem 2rem;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s, opacity 0.15s;
+      letter-spacing: 0.01em;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--accent2); }
+    .btn-primary:active:not(:disabled) { transform: scale(0.99); }
+    .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .btn-sm {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      padding: 0.35rem 0.8rem;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .btn-sm:hover { background: var(--border); }
+
+    /* ── Results grid ───────────────────────────────────────────── */
+    .results-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--gap);
+      margin-bottom: var(--gap);
+    }
+    @media (max-width: 780px) { .results-grid { grid-template-columns: 1fr; } }
+
+    /* ── Section header ─────────────────────────────────────────── */
+    .sec-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .sec-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+
+    /* ── Badge ──────────────────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.1em 0.55em;
+      font-size: 0.72rem;
+      font-weight: 600;
+      vertical-align: middle;
+      margin-left: 0.3em;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .badge-run {
+      background: rgba(99,102,241,0.18);
+      border-color: var(--accent);
+      color: #a5b4fc;
+    }
+    .badge-done {
+      background: rgba(34,197,94,0.15);
+      border-color: var(--c-supported);
+      color: #86efac;
+    }
+    .badge-error {
+      background: rgba(239,68,68,0.15);
+      border-color: var(--c-contradicted);
+      color: #fca5a5;
+    }
+    .badge-primary {
+      background: rgba(99,102,241,0.15);
+      border-color: var(--accent);
+      color: #a5b4fc;
+    }
+
+    /* ── Activity log ───────────────────────────────────────────── */
+    .log {
+      max-height: 460px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .log::-webkit-scrollbar { width: 5px; }
+    .log::-webkit-scrollbar-track { background: transparent; }
+    .log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .log-entry {
+      padding: 0.45rem 0.7rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      line-height: 1.45;
+      animation: fade-in 0.2s ease;
+    }
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(3px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .log-status   { background: rgba(99,102,241,0.1);  color: #a5b4fc; }
+    .log-fetch    { background: rgba(255,255,255,0.04); color: var(--text); }
+    .log-analyzed { background: rgba(255,255,255,0.03); color: var(--text); }
+    .log-error    { background: rgba(239,68,68,0.1);   color: #fca5a5; }
+
+    /* ── Tree panel ─────────────────────────────────────────────── */
+    .tree-wrap {
+      min-height: 220px;
+      max-height: 460px;
+      overflow: auto;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+    }
+    .tree-wrap svg { max-width: 100%; height: auto; }
+    .placeholder {
+      color: var(--muted);
+      font-size: 0.875rem;
+      text-align: center;
+      padding: 3rem 1rem;
+      margin: auto;
+    }
+
+    /* ── Spinner ────────────────────────────────────────────────── */
+    .spinner {
+      display: inline-block;
+      width: 13px; height: 13px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      vertical-align: middle;
+      margin-right: 0.4rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Report ─────────────────────────────────────────────────── */
+    .report-card { margin-bottom: var(--gap); }
+
+    .report-body {
+      margin-top: 1rem;
+      font-size: 0.9375rem;
+    }
+    .report-body h1 { font-size: 1.45rem; margin: 1.5rem 0 0.6rem; }
+    .report-body h2 {
+      font-size: 1.15rem; margin: 1.2rem 0 0.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.3rem;
+    }
+    .report-body h3 { font-size: 1rem; margin: 1rem 0 0.4rem; color: #a5b4fc; }
+    .report-body p  { margin: 0.6rem 0; }
+    .report-body strong { color: var(--text); }
+    .report-body em { color: var(--muted); }
+    .report-body code {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.1em 0.35em;
+      font-size: 0.85em;
+      font-family: 'Consolas', 'Cascadia Code', monospace;
+    }
+    .report-body pre {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      overflow: auto;
+      margin: 0.75rem 0;
+    }
+    .report-body pre code { background: none; border: none; padding: 0; font-size: 0.875em; }
+    .report-body table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.875rem; }
+    .report-body th, .report-body td { text-align: left; padding: 0.45rem 0.7rem; border: 1px solid var(--border); }
+    .report-body th { background: var(--surface2); font-weight: 600; color: var(--muted); }
+    .report-body tr:hover td { background: rgba(255,255,255,0.02); }
+    .report-body blockquote {
+      border-left: 3px solid var(--accent);
+      margin: 0.6rem 0;
+      padding: 0.2rem 0 0.2rem 1rem;
+      color: var(--muted);
+    }
+    .report-body ul, .report-body ol { margin: 0.6rem 0; padding-left: 1.5rem; }
+    .report-body li { margin: 0.2rem 0; }
+    .report-body hr { border: none; border-top: 1px solid var(--border); margin: 1.2rem 0; }
+
+    .mermaid-diagram {
+      margin: 0.75rem 0;
+      padding: 1rem;
+      background: var(--surface2);
+      border-radius: 8px;
+      overflow: auto;
+      text-align: center;
+    }
+    .mermaid-diagram svg { max-width: 100%; }
+  </style>
+</head>
+<body>
+<a href="../" style="position:fixed;bottom:16px;left:16px;z-index:9999;padding:6px 12px;border-radius:999px;font:500 13px/1.4 system-ui,sans-serif;text-decoration:none;color:#fff;background:rgba(15,23,42,.82);box-shadow:0 2px 8px rgba(0,0,0,.2)">&larr; Paper Verifier Suite</a>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <h1>🔬 Citation Genealogy Agent</h1>
+    <p>Trace a scientific claim backward through its citation chain and detect distortion at every hop</p>
+  </header>
+
+  <!-- Input Card -->
+  <div class="card input-card">
+    <div class="form-group">
+      <label for="claim">Claim to verify</label>
+      <textarea id="claim" rows="3"
+        placeholder='e.g. "Regular exercise reduces the risk of depression by 30%"'></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="source">Source reference</label>
+        <input id="source" type="text"
+          placeholder='Title + year  |  DOI  |  https://pubmed...  |  https://doi.org/...  |  https://arxiv.org/...' />
+      </div>
+      <div class="form-group">
+        <label class="depth-label">
+          <span>Max depth</span>
+          <span class="depth-val" id="depth-display">5</span>
+        </label>
+        <input id="max-depth" type="range" min="1" max="8" value="5" />
+      </div>
+    </div>
+    <button id="verify-btn" class="btn-primary">Verify Claim</button>
+  </div>
+
+  <!-- Activity + Tree -->
+  <div class="results-grid" id="results-section" style="display:none">
+    <div class="card">
+      <div class="sec-header">
+        <span class="sec-title">Activity</span>
+        <span id="status-badge" class="badge"></span>
+      </div>
+      <div id="log" class="log"></div>
+    </div>
+
+    <div class="card">
+      <div class="sec-header">
+        <span class="sec-title">Citation Tree</span>
+      </div>
+      <div id="tree-wrap" class="tree-wrap">
+        <p class="placeholder">Tree will build here as papers are analyzed…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Report -->
+  <div class="card report-card" id="report-section" style="display:none">
+    <div class="sec-header">
+      <span class="sec-title">Final Report</span>
+      <button id="download-btn" class="btn-sm">⬇ Download .md</button>
+    </div>
+    <div id="report-body" class="report-body"></div>
+  </div>
+
+</div><!-- .app -->
+
+<script>
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor:       '#1e293b',
+      primaryTextColor:   '#e2e8f0',
+      primaryBorderColor: '#334155',
+      lineColor:          '#6366f1',
+      secondaryColor:     '#263347',
+      tertiaryColor:      '#0f172a',
+    },
+    securityLevel: 'strict',
+  });
+
+  // ── App state ────────────────────────────────────────────────────
+  const treeNodes = new Map();  // node_id → {title, year, verdict, is_primary, parent_id, depth}
+  const treeEdges = new Set();  // "from --> to" strings (deduped)
+  let reportText   = '';
+  let renderTimer  = null;
+
+  // ── DOM refs ─────────────────────────────────────────────────────
+  const claimEl        = document.getElementById('claim');
+  const sourceEl       = document.getElementById('source');
+  const maxDepthEl     = document.getElementById('max-depth');
+  const depthDisplay   = document.getElementById('depth-display');
+  const verifyBtn      = document.getElementById('verify-btn');
+  const logEl          = document.getElementById('log');
+  const treeWrap       = document.getElementById('tree-wrap');
+  const resultsSection = document.getElementById('results-section');
+  const reportSection  = document.getElementById('report-section');
+  const reportBody     = document.getElementById('report-body');
+  const downloadBtn    = document.getElementById('download-btn');
+  const statusBadge    = document.getElementById('status-badge');
+
+  // ── Verdict config ───────────────────────────────────────────────
+  const V = {
+    supported:    { emoji: '✅', color: '#22c55e', label: 'Supported' },
+    partial:      { emoji: '⚠️',  color: '#f59e0b', label: 'Partial' },
+    distorted:    { emoji: '🔴', color: '#f97316', label: 'Distorted' },
+    contradicted: { emoji: '🚫', color: '#ef4444', label: 'Contradicted' },
+    not_found:    { emoji: '❓', color: '#94a3b8', label: 'Not found' },
+    pending:      { emoji: '⏳', color: '#6366f1', label: 'Analyzing…' },
+  };
+
+  // ── Depth slider ─────────────────────────────────────────────────
+  maxDepthEl.addEventListener('input', () => {
+    depthDisplay.textContent = maxDepthEl.value;
+  });
+
+  // ── Log helper ───────────────────────────────────────────────────
+  function esc(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function sanitizeHtml(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('script, iframe, object, embed, link, style').forEach(el => el.remove());
+    doc.querySelectorAll('*').forEach(el => {
+      [...el.attributes].forEach(attr => {
+        const name = attr.name.toLowerCase();
+        const value = String(attr.value || '').toLowerCase();
+        if (name.startsWith('on') || value.includes('javascript:')) {
+          el.removeAttribute(attr.name);
+        }
+      });
+    });
+    return doc.body.innerHTML;
+  }
+
+  function addLog(html, type = 'info') {
+    const el = document.createElement('div');
+    el.className = `log-entry log-${type}`;
+    el.innerHTML = sanitizeHtml(html);
+    logEl.appendChild(el);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  // ── Mermaid tree ─────────────────────────────────────────────────
+  function buildMermaidSrc() {
+    const lines = ['graph TD'];
+    for (const [id, n] of treeNodes) {
+      const v     = V[n.verdict] || V.pending;
+      const star  = n.is_primary ? ' ⭐' : '';
+      const title = (n.title || 'Unknown')
+        .substring(0, 40)
+        .replace(/[^a-zA-Z0-9 .,;:()_+\-]/g, ' ')
+        .replace(/["[\]]/g, "'");
+      const year  = n.year || '?';
+      lines.push(`    ${id}["${v.emoji}${star} ${title} (${year})"]`);
+      lines.push(`    style ${id} fill:#1e293b,stroke:${v.color},stroke-width:2px,color:#e2e8f0`);
+    }
+    for (const edge of treeEdges) lines.push(`    ${edge}`);
+    return lines.join('\n');
+  }
+
+  async function renderTree() {
+    if (treeNodes.size === 0) return;
+    try {
+      const { svg } = await mermaid.render('mg' + Date.now(), buildMermaidSrc());
+      treeWrap.innerHTML = svg;
+      const s = treeWrap.querySelector('svg');
+      if (s) { s.style.maxWidth = '100%'; s.style.height = 'auto'; }
+    } catch (e) {
+      console.warn('Mermaid render:', e);
+    }
+  }
+
+  function scheduleRender() {
+    if (renderTimer) clearTimeout(renderTimer);
+    renderTimer = setTimeout(renderTree, 350);
+  }
+
+  // ── Report rendering ─────────────────────────────────────────────
+  async function showReport(text) {
+    reportText = text;
+    reportSection.style.display = 'block';
+    reportBody.innerHTML = sanitizeHtml(marked.parse(text || ''));
+
+    // Render inline Mermaid blocks
+    for (const block of reportBody.querySelectorAll('code.language-mermaid')) {
+      const src = block.textContent;
+      const pre = block.closest('pre');
+      try {
+        const { svg } = await mermaid.render('rp' + Date.now(), src);
+        const div = document.createElement('div');
+        div.className = 'mermaid-diagram';
+        div.innerHTML = svg;
+        if (pre) pre.replaceWith(div);
+      } catch (e) {
+        console.warn('Report mermaid:', e);
+      }
+    }
+    setTimeout(() => reportSection.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+  }
+
+  // ── Download ─────────────────────────────────────────────────────
+  downloadBtn.addEventListener('click', () => {
+    if (!reportText) return;
+    const a   = document.createElement('a');
+    a.href    = URL.createObjectURL(new Blob([reportText], { type: 'text/markdown' }));
+    a.download = 'citation-report.md';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+
+  // ── Status badge helpers ─────────────────────────────────────────
+  function setBadge(text, cls) {
+    statusBadge.textContent = text;
+    statusBadge.className   = `badge ${cls}`;
+  }
+
+  // ── Verify ───────────────────────────────────────────────────────
+  verifyBtn.addEventListener('click', verify);
+  sourceEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') verify(); });
+
+  async function verify() {
+    const claim  = claimEl.value.trim();
+    const source = sourceEl.value.trim();
+    if (!claim)  { claimEl.focus();  return; }
+    if (!source) { sourceEl.focus(); return; }
+
+    // Reset
+    treeNodes.clear();
+    treeEdges.clear();
+    reportText = '';
+    logEl.innerHTML = '';
+    treeWrap.innerHTML = '<p class="placeholder">Tree will build here as papers are analyzed…</p>';
+    reportSection.style.display = 'none';
+    resultsSection.style.display = 'grid';
+    verifyBtn.disabled = true;
+    verifyBtn.innerHTML = '<span class="spinner"></span>Running…';
+    setBadge('Running', 'badge-run');
+
+    // POST /run
+    let runId;
+    try {
+      const res = await fetch('run', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ claim, source, max_depth: +maxDepthEl.value }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      ({ run_id: runId } = await res.json());
+    } catch (err) {
+      addLog(`❌ Failed to start: ${esc(err.message)}`, 'error');
+      setBadge('Error', 'badge-error');
+      verifyBtn.disabled = false;
+      verifyBtn.textContent = 'Verify Claim';
+      return;
+    }
+
+    // SSE
+    const es = new EventSource(`stream/${runId}`);
+
+    es.onmessage = async ({ data }) => {
+      const ev = JSON.parse(data);
+
+      if (ev.type === 'status') {
+        addLog(`ℹ️ ${esc(ev.message)}`, 'status');
+
+      } else if (ev.type === 'node_fetched') {
+        const year = ev.year ? ` (${ev.year})` : '';
+        addLog(
+          `🔍 <strong>Fetching</strong> &mdash; ${esc(ev.title || 'Unknown')}${esc(year)}` +
+          ` <span class="badge">Depth ${esc(ev.depth)}</span>`,
+          'fetch'
+        );
+        treeNodes.set(ev.node_id, {
+          title:      ev.title,
+          year:       ev.year,
+          verdict:    'pending',
+          is_primary: false,
+          parent_id:  ev.parent_id,
+          depth:      ev.depth,
+        });
+        if (ev.parent_id) treeEdges.add(`${ev.parent_id} --> ${ev.node_id}`);
+        scheduleRender();
+
+      } else if (ev.type === 'node_analyzed') {
+        const v    = V[ev.verdict] || V.not_found;
+        const year = ev.year ? ` (${ev.year})` : '';
+        const star = ev.is_primary
+          ? ' <span class="badge badge-primary">⭐ Primary source</span>' : '';
+        addLog(
+          `${v.emoji} <strong style="color:${esc(v.color)}">${esc(v.label)}</strong>` +
+          ` &mdash; ${esc(ev.title || 'Unknown')}${esc(year)}${star}`,
+          'analyzed'
+        );
+        const existing = treeNodes.get(ev.node_id) || {};
+        treeNodes.set(ev.node_id, {
+          ...existing,
+          title:      ev.title      || existing.title,
+          year:       ev.year       || existing.year,
+          verdict:    ev.verdict,
+          is_primary: ev.is_primary,
+          parent_id:  ev.parent_id,
+          depth:      ev.depth,
+        });
+        if (ev.parent_id) treeEdges.add(`${ev.parent_id} --> ${ev.node_id}`);
+        scheduleRender();
+
+      } else if (ev.type === 'report') {
+        await showReport(ev.content);
+        addLog('📋 Report ready.', 'status');
+
+      } else if (ev.type === 'error') {
+        addLog(`❌ ${esc(ev.message)}`, 'error');
+
+      } else if (ev.type === 'done') {
+        addLog('✅ <strong>Verification complete.</strong>', 'status');
+        setBadge('Done', 'badge-done');
+        verifyBtn.disabled = false;
+        verifyBtn.textContent = 'Verify Claim';
+        es.close();
+      }
+    };
+
+    es.onerror = () => {
+      addLog('❌ Connection lost.', 'error');
+      setBadge('Error', 'badge-error');
+      verifyBtn.disabled = false;
+      verifyBtn.textContent = 'Verify Claim';
+      es.close();
+    };
+  }
+</script>
+</body>
+</html>

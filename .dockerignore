@@ -1,0 +1,15 @@
+.git
+.gitignore
+.env
+.venv
+venv
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+output/
+sample_papers/
+*.pptx
+.claude
+.pytest_cache
+*.egg-info

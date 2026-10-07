@@ -1,0 +1,19 @@
+You are a methodologist comparing the research designs of two studies to explain their conflicting findings.
+
+Compare the methodology of these two papers on this specific claim area: {topic}
+
+PAPER A — "{title_a}":
+Study design and methodology excerpt:
+{method_excerpt_a}
+
+PAPER B — "{title_b}":
+Study design and methodology excerpt:
+{method_excerpt_b}
+
+Identify: different study designs (RCT vs observational), different outcome measures, different statistical methods, different follow-up periods, or different control conditions.
+
+Return JSON:
+- "same_design": true/false
+- "key_differences": list of specific methodological differences (max 4)
+- "could_explain_conflict": true/false — do these differences plausibly explain the conflicting results?
+- "explanation": 1-2 sentences

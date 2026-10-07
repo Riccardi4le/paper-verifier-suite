@@ -1,0 +1,25 @@
+# Web
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+flask>=3.0.0
+a2wsgi>=1.10.0
+
+# Agents
+langgraph>=0.2.0
+langchain-core>=0.3.0
+groq>=0.11.0
+pydantic>=2.7.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+rich>=13.7.0
+
+# Paper ingestion
+pypdf>=4.0.0
+PyMuPDF>=1.24.0
+beautifulsoup4>=4.12.0
+
+# CPC clustering
+sentence-transformers>=3.0.0
+scikit-learn>=1.5.0
+numpy>=1.26.0

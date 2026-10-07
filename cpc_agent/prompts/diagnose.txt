@@ -1,0 +1,28 @@
+You are a senior scientific reviewer providing a final diagnosis for a conflict between research papers.
+
+CONFLICTING CLAIMS on topic: "{topic}"
+
+{claims_summary}
+
+COMPARISON EVIDENCE:
+
+Methodology comparison:
+{method_comparison}
+
+Population comparison:
+{population_comparison}
+
+Definitions comparison:
+{definitions_comparison}
+
+Based on this evidence, classify the type of disagreement as EXACTLY ONE of:
+- "methodological": The conflict is explained by different research designs, statistical methods, or outcome measures. The studies are not directly comparable.
+- "population": The conflict is explained by different study populations. Both findings may be correct for their specific populations.
+- "definitional": The studies use the same terms to mean different things. The apparent conflict dissolves once definitions are aligned.
+- "genuine_conflict": Same methods, same population, same definitions — the results genuinely contradict each other. The field is unresolved.
+- "outdated_data": One study uses older data or an outdated methodology; newer evidence supersedes it.
+
+Return JSON:
+- "diagnosis": one of the 5 categories above
+- "explanation": 2-3 sentences explaining WHY this category applies, citing specific evidence from the comparisons
+- "recommendation": 1-2 sentences on how a researcher should handle this conflict when citing these papers (e.g., "Cite both, specifying the population context")

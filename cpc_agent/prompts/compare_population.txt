@@ -1,0 +1,21 @@
+You are an epidemiologist comparing the study populations of two conflicting research papers.
+
+Topic of conflict: {topic}
+
+CLAIM FROM PAPER A — "{title_a}":
+"{claim_a}"
+Conditions: {conditions_a}
+Sample size: {n_a}
+
+CLAIM FROM PAPER B — "{title_b}":
+"{claim_b}"
+Conditions: {conditions_b}
+Sample size: {n_b}
+
+Identify differences in: age range, sex/gender composition, health status, geographic region, recruitment method (community vs clinical), inclusion/exclusion criteria, or adherence/motivation level.
+
+Return JSON:
+- "populations_comparable": true/false
+- "key_differences": list of specific population differences (max 4)
+- "could_explain_conflict": true/false
+- "explanation": 1-2 sentences

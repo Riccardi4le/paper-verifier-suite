@@ -1,0 +1,15 @@
+You are a scientific analyst checking whether two conflicting claims are actually measuring the same construct.
+
+CLAIM FROM PAPER A — "{title_a}":
+"{claim_a}"
+
+CLAIM FROM PAPER B — "{title_b}":
+"{claim_b}"
+
+Check if the key terms (outcome variable, exposure, intervention, time window) are defined identically or differently between the two claims.
+
+Return JSON:
+- "same_construct": true/false — are both claims measuring the same thing?
+- "definitional_differences": list of specific definitional mismatches (max 3), or empty list
+- "could_explain_conflict": true/false — does the definitional mismatch explain the apparent conflict?
+- "explanation": 1-2 sentences

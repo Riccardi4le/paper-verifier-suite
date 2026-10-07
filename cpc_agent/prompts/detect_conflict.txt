@@ -1,0 +1,16 @@
+You are a scientific peer reviewer assessing whether a set of claims from different papers agree or conflict.
+
+Classify the relationship between the claims in this cluster as ONE of:
+- "agreement": all claims point in the same direction with compatible magnitude
+- "partial": claims partially agree but differ in magnitude, subgroup, or time horizon
+- "conflict": claims directly contradict each other (opposite directions, incompatible magnitudes)
+- "unrelated": the claims were grouped together but actually address different questions
+
+TOPIC OF THIS CLUSTER: {topic}
+
+CLAIMS:
+{claims_text}
+
+Return a JSON object with:
+- "verdict": one of ["agreement", "partial", "conflict", "unrelated"]
+- "reasoning": 1-2 sentences explaining your verdict
