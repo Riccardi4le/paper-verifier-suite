@@ -90,6 +90,28 @@ def _url_to_query(url: str) -> str:
     return url
 
 
+def _title_from_doi(doi: str) -> Optional[str]:
+    """Look up a DOI's title via doi.org content negotiation (Crossref + DataCite).
+
+    OpenAlex doesn't index some DOI registrars — notably arXiv's 10.48550 DOIs —
+    so a title is the only reliable way to find those works.
+    """
+    try:
+        resp = requests.get(
+            f"https://doi.org/{doi}",
+            headers={**_headers(), "Accept": "application/vnd.citationstyles.csl+json"},
+            timeout=_TIMEOUT,
+        )
+        if resp.status_code == 200:
+            title = resp.json().get("title")
+            if isinstance(title, list):
+                title = title[0] if title else None
+            return title or None
+    except (requests.RequestException, ValueError):
+        pass
+    return None
+
+
 def fetch_work_openalex(query: str) -> Optional[dict]:
     """Resolve a citation string, URL, or DOI to an OpenAlex work dict."""
     query = query.strip()
@@ -118,27 +140,10 @@ def fetch_work_openalex(query: str) -> Optional[dict]:
         except requests.RequestException:
             pass
 
-    # arXiv ID
-    arxiv_match = re.match(r'arxiv:([0-9]{4}\.[0-9]+)', query)
+    # arXiv ID → arXiv DOI (OpenAlex has no arXiv-ID filter)
+    arxiv_match = re.match(r'arxiv:\s*([0-9]{4}\.[0-9]+)', query, re.IGNORECASE)
     if arxiv_match:
-        params = {
-            "filter": f"ids.arxiv:{arxiv_match.group(1)}",
-            "per-page": 1,
-            "select": (
-                "id,title,authorships,publication_year,doi,"
-                "abstract_inverted_index,referenced_works,type"
-            ),
-        }
-        try:
-            resp = requests.get(
-                f"{OPENALEX_BASE}/works", params=params, headers=_headers(), timeout=_TIMEOUT
-            )
-            if resp.status_code == 200:
-                results = resp.json().get("results", [])
-                if results:
-                    return results[0]
-        except requests.RequestException:
-            pass
+        query = f"10.48550/arxiv.{arxiv_match.group(1)}"
 
     # Try DOI first
     doi_match = re.search(r'10\.\d{4,}/\S+', query)
@@ -151,6 +156,12 @@ def fetch_work_openalex(query: str) -> Optional[dict]:
                 return resp.json()
         except requests.RequestException:
             pass
+        # Not in OpenAlex under this DOI: search by its title instead. A bare
+        # DOI string is never a useful full-text query — it matches random papers.
+        title = _title_from_doi(doi)
+        if not title:
+            return None
+        query = title
 
     # Try OpenAlex ID directly
     oaid_match = re.search(r'W\d{6,}', query)
@@ -166,7 +177,7 @@ def fetch_work_openalex(query: str) -> Optional[dict]:
     # Fall back to text search
     params = {
         "search": query,
-        "per-page": 3,
+        "per-page": 5,
         "select": (
             "id,title,authorships,publication_year,doi,"
             "abstract_inverted_index,referenced_works,type"
